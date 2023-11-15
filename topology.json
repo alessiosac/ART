@@ -1,0 +1,69 @@
+{
+  "hosts": {
+      "h1": {"ip":"10.0.1.1/24", "mac":"00:00:0a:00:01:01", "commands":["route add default gw 10.0.1.254 dev eth0",
+                  "arp -i eth0 -s 10.0.1.254 01:01:01:01:01:01", "arp -i eth0 -s 10.0.1.4 00:00:0a:00:01:04"]
+      },
+      "h2": {"ip":"10.0.6.2/24", "mac":"00:00:0a:00:06:02", "commands":["route add default gw 10.0.6.254 dev eth0",
+                  "arp -i eth0 -s 10.0.6.254 06:06:06:06:06:06", "arp -i eth0 -s 10.0.6.5 00:00:0a:00:06:05"]
+      },
+      "h3" : {"ip":"10.0.7.3/24", "mac":"00:00:0a:00:07:03", "commands":["route add default gw 10.0.7.254 dev eth0",
+                  "arp -i eth0 -s 10.0.7.254 07:07:07:07:07:07", "arp -i eth0 -s 10.0.7.6 00:00:0a:00:07:06"]
+      },
+ 	    "h4": {"ip":"10.0.1.4/24", "mac":"00:00:0a:00:01:04", "commands":["route add default gw 10.0.1.254 dev eth0",
+                  "arp -i eth0 -s 10.0.1.254 01:01:01:01:01:01", "arp -i eth0 -s 10.0.1.1 00:00:0a:00:01:01"]
+      },
+      "h5": {"ip":"10.0.6.5/24", "mac":"00:00:0a:00:06:05", "commands":["route add default gw 10.0.6.254 dev eth0",
+                  "arp -i eth0 -s 10.0.6.254 06:06:06:06:06:06", "arp -i eth0 -s 10.0.6.2 00:00:0a:00:06:02"]
+      },
+      "h6" : {"ip":"10.0.7.6/24", "mac":"00:00:0a:00:07:06", "commands":["route add default gw 10.0.7.254 dev eth0",
+                  "arp -i eth0 -s 10.0.7.254 07:07:07:07:07:07", "arp -i eth0 -s 10.0.7.3 00:00:0a:00:07:03"]
+      },
+ 	    "h7": {"ip":"10.0.8.7/24", "mac":"00:00:0a:00:08:07", "commands":["route add default gw 10.0.8.254 dev eth0",
+                  "arp -i eth0 -s 10.0.8.254 08:08:08:08:08:08", "arp -i eth0 -s 10.0.8.8 00:00:0a:00:08:08"]
+      },
+      "h8": {"ip":"10.0.8.8/24", "mac":"00:00:0a:00:08:08", "commands":["route add default gw 10.0.8.254 dev eth0",
+                  "arp -i eth0 -s 10.0.8.254 08:08:08:08:08:08", "arp -i eth0 -s 10.0.8.7 00:00:0a:00:08:07"]
+      },
+      "h9" : {"ip":"10.0.9.9/24", "mac":"00:00:0a:00:09:09", "commands":["route add default gw 10.0.9.254 dev eth0",
+                  "arp -i eth0 -s 10.0.9.254 09:09:09:09:09:09", "arp -i eth0 -s 10.0.9.10 00:00:0a:00:09:0a"]
+      },
+      "h10" : {"ip":"10.0.9.10/24", "mac":"00:00:0a:00:09:0a", "commands":["route add default gw 10.0.9.254 dev eth0",
+                  "arp -i eth0 -s 10.0.9.254 09:09:09:09:09:09", "arp -i eth0 -s 10.0.9.9 00:00:0a:00:09:09"]
+      }
+    },
+    "switches": {
+      "s1": {
+        "cli_input": "s1-commands.txt"
+      },
+      "s2": {
+        "cli_input": "s2-commands.txt"
+      },
+      "s3": {
+        "cli_input": "s3-commands.txt"
+      },
+      "s4": {
+        "cli_input": "s4-commands.txt"
+      },
+      "s5": {
+        "cli_input": "s5-commands.txt"
+      },
+      "s6": {
+        "cli_input": "s6-commands.txt"
+      },
+      "s7" : {
+        "cli_input": "s7-commands.txt"
+      },
+      "s8": {
+        "cli_input": "s8-commands.txt"
+      },
+      "s9" : {
+        "cli_input": "s9-commands.txt"
+      }
+    },
+    "links": [["h1", "s1-p1"], ["h2", "s6-p1"],["h3","s7-p1"], ["h4", "s1-p2"], ["h5", "s6-p2"], ["h6", "s7-p2"], ["h7", "s8-p1"],["h8", "s8-p2"],["h9", "s9-p1"],["h10", "s9-p2"],
+    ["s1-p3", "s2-p1"], ["s1-p4", "s3-p1"], ["s1-p5", "s4-p1"], ["s1-p6", "s5-p1"],
+    ["s2-p2", "s6-p3"], ["s3-p2", "s6-p4"], ["s4-p2", "s6-p5"], ["s5-p2", "s6-p6"],
+    ["s2-p3", "s8-p3"], ["s3-p3", "s8-p4"], ["s4-p3", "s8-p5"], ["s5-p3", "s8-p6"],
+    ["s2-p4", "s9-p3"], ["s3-p4", "s9-p4"], ["s4-p4", "s9-p5"], ["s5-p4", "s9-p6"],
+    ["s7-p3","s2-p5"],["s7-p4","s3-p5"],["s7-p5","s4-p5"],["s7-p6","s5-p5"]]
+}

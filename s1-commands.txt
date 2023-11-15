@@ -1,0 +1,27 @@
+table_add ipv4_lpmA set_nhopA 10.0.1.1/32 => 00:00:0a:00:01:01 1
+table_add ipv4_lpmA set_nhopA 10.0.1.4/32 => 00:00:0a:00:01:04 2
+
+table_add ipv4_lpmA ecmp_groupA 10.0.6.2/29 => 6 4
+table_add ipv4_lpmA ecmp_groupA 10.0.7.0/24 => 7 4
+table_add ipv4_lpmA ecmp_groupA 10.0.8.0/24 => 8 4
+table_add ipv4_lpmA ecmp_groupA 10.0.9.0/24 => 9 4
+
+table_add ecmp_group_to_nhopA set_nhopA 6 0 => 00:00:00:02:01:00 3
+table_add ecmp_group_to_nhopA set_nhopA 6 1 => 00:00:00:03:01:00 4
+table_add ecmp_group_to_nhopA set_nhopA 6 2 => 00:00:00:04:01:00 5
+table_add ecmp_group_to_nhopA set_nhopA 6 3 => 00:00:00:05:01:00 6
+
+table_add ecmp_group_to_nhopA set_nhopA 7 0 => 00:00:00:02:01:00 3
+table_add ecmp_group_to_nhopA set_nhopA 7 1 => 00:00:00:03:01:00 4
+table_add ecmp_group_to_nhopA set_nhopA 7 2 => 00:00:00:04:01:00 5
+table_add ecmp_group_to_nhopA set_nhopA 7 3 => 00:00:00:05:01:00 6
+
+table_add ecmp_group_to_nhopA set_nhopA 8 0 => 00:00:00:02:01:00 3
+table_add ecmp_group_to_nhopA set_nhopA 8 1 => 00:00:00:03:01:00 4
+table_add ecmp_group_to_nhopA set_nhopA 8 2 => 00:00:00:04:01:00 5
+table_add ecmp_group_to_nhopA set_nhopA 8 3 => 00:00:00:05:01:00 6
+
+table_add ecmp_group_to_nhopA set_nhopA 9 0 => 00:00:00:02:01:00 3
+table_add ecmp_group_to_nhopA set_nhopA 9 1 => 00:00:00:03:01:00 4
+table_add ecmp_group_to_nhopA set_nhopA 9 2 => 00:00:00:04:01:00 5
+table_add ecmp_group_to_nhopA set_nhopA 9 3 => 00:00:00:05:01:00 6
