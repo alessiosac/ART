@@ -214,7 +214,9 @@ def define_connection(bmv2_file_path, switch_id):
                         group_add(p4info_helper, switch, table_name, action_name, ecmp_group_id, ecmp_hash,
                                   dst_eth_addr, port)
 
-        connected_switches.append(switch)
+        #connected_switches.append(switch)
+
+        return switch
 
     except KeyboardInterrupt:
         print(" Shutting down.")
@@ -222,7 +224,7 @@ def define_connection(bmv2_file_path, switch_id):
         printGrpcError(e)
 
 
-def connect_switches_to_controller():
+def connect_switches_to_controller(switch_id):
     parser = argparse.ArgumentParser(description='P4Runtime Controller')
     parser.add_argument('--p4info', help='p4info proto in text format from p4c',
                         type=str, action="store", required=False,
@@ -246,8 +248,8 @@ def connect_switches_to_controller():
         print("\nBMv2 JSON file not found: %s\nHave you run 'make'?" % args.bmv2_json)
         parser.exit(1)
 
-    for switch_id in range(1, NUMBER_SWITCHES + 1):
-        define_connection(args.bmv2_json, switch_id)
+    #for switch_id in range(1, switch_id):
+    define_connection(args.bmv2_json, switch_id)
         # readTableRules(p4info_helper, connected_switches[switch_id-1])
 
     # = helper.P4InfoHelper(args.p4info)
@@ -268,9 +270,12 @@ def bitstring_to_decimal(bitstring):
 
 def printDigests(sw, idx, lock):
     lock.acquire()
-    print("Start checking digests for s%d" % (sw.device_id + 1))
+    print("Start checking digests for s%d" % (idx + 1))
     ready[idx] = True
     lock.release()
+
+    print("Print Digest")
+    print(sw)
 
     # TODO this is hardcoded and retrieved from the build/file.txt folder
     DIGEST_ID = 391276020
@@ -297,14 +302,21 @@ def printDigests(sw, idx, lock):
 
 
 def getP4RuntimeConnection(switch_id):
-    return connected_switches[switch_id]
+    #connect_switches_to_controller()
+    connection = connect_switches_to_controller(int(switch_id))
+    print("GetP4RuntimeConnection")
+    print(connection)
+    print("-----")
+    #print(connected_switches)
+    return connection
 
 
-def get_from_digest(switch_id):
-    ready[switch_id] = False
+def get_from_digest(connection, switch_id):
+    ready[int(switch_id)-1] = False
     lock = threading.Lock()
-    sw = connected_switches[switch_id]
-    t = threading.Thread(target=printDigests, args=(sw, switch_id, lock))
+    print("Get from digest")
+    print(connection)
+    t = threading.Thread(target=printDigests, args=(connection, switch_id, lock))
     t.start()
 
     #CHECK
@@ -323,7 +335,7 @@ def get_from_digest(switch_id):
     return return_digest
 
 
-connect_switches_to_controller()
+#connect_switches_to_controller()
 
 # p4info_helper = connect_switches_to_controller()
 '''

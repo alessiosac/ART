@@ -253,8 +253,8 @@ class NetEnv(gym.Env):
     def __init__(self, nports, switch_id, port):
         self.nports = nports
         self.id = switch_id #per esempio s9
-        self.id_num = id.split("s")[1] #cosi da avere il 9
-        print("initialized with nports =", nports, ", id =", id)
+        self.id_num = self.id.split("s")[1] #cosi da avere il 9
+        print("initialized with nports =", nports, ", id =", id, ", id_num =", self.id_num)
         self.P4Runtime_connection = P4Runtime.getP4RuntimeConnection(self.id_num)
         self.action_space = spaces.Discrete(self.nports)
         # self.observation_space = spaces.Box(low = 0, high = MAX, shape=(3, 5))
@@ -339,7 +339,8 @@ class NetEnv(gym.Env):
         # list_counter = P4Runtime.getCounterValue()
         # self.state.makeNPArray()
 
-        dstAddr, size, time = P4Runtime.get_from_digest(int(self.id_num)-1)
+
+        dstAddr, size, time = P4Runtime.get_from_digest(self.P4Runtime_connection, int(self.id_num)-1)
 
         # check for the "if not data"
 
@@ -424,7 +425,7 @@ class NetEnv(gym.Env):
         # as msg arrives store fields in state, drop reward
 
         if not self.resetvar:
-            dst, size, time = P4Runtime.get_from_digest(self.id_num)
+            dst, size, time = P4Runtime.get_from_digest(self.P4Runtime_connection,  int(self.id_num)-1)
             self.state.setDsts(dst)
 
         self.resetvar = True
