@@ -1,4 +1,4 @@
-import gymnasium
+import gymnasium as gym
 from gymnasium import spaces
 import socket
 import struct
@@ -7,20 +7,22 @@ import collections
 import numpy as np
 import json
 import os
+
+import P4Runtime
 import loadtopo as topo
 from math import log
 import matplotlib.pyplot as plt
 
-PORT, HOST_IP = 1400, '0.0.0.0'
+# PORT, HOST_IP = 1400, '0.0.0.0'
 MAX = 4294967295
-AH_LENGTH = 2 # max 5
-FD_LENGTH = 2 # max 5
+AH_LENGTH = 3  # max 5
+FD_LENGTH = 3  # max 5
 LAMBDA1 = 1
-LAMBDA2 = 5 #0.5
+LAMBDA2 = 5  # 0.5
 LAMBDA3 = 1
-LAMBDA4 = 0.005 #0.0005
-NHOSTS = 4
-MAXPORTS = 5
+LAMBDA4 = 0.005  # 0.0005
+NHOSTS = 10
+MAXPORTS = 6
 MAXQTIME = 10000
 MINQTIME = 0
 MINDISTANCE = 1
@@ -29,7 +31,8 @@ PLOT_FREQ = 1000
 PLOT_SOIL = 0
 MEANSTEP = 250
 
-def minRw (isBackbone):
+
+def minRw(isBackbone):
     delta1 = 0
     if isBackbone:
         delta3 = 0
@@ -38,7 +41,7 @@ def minRw (isBackbone):
         delta3 = 1
         delta4 = 0
     seconds = MAXQTIME / 1000000
-    #seconds = 10
+    # seconds = 10
     rw1 = LAMBDA1 * delta1
     rw2 = LAMBDA2 * seconds
     rw3 = LAMBDA3 * delta3
@@ -46,7 +49,8 @@ def minRw (isBackbone):
     rw = 0 + rw1 - rw2 - rw3 - rw4
     return rw
 
-def maxRw (isBackbone):
+
+def maxRw(isBackbone):
     if isBackbone:
         delta1 = 0
         delta4 = 1
@@ -55,7 +59,7 @@ def maxRw (isBackbone):
         delta4 = 0
     delta3 = 0
     seconds = MINQTIME / 1000000
-    #seconds = 0
+    # seconds = 0
     rw1 = LAMBDA1 * delta1
     rw2 = LAMBDA2 * seconds
     rw3 = LAMBDA3 * delta3
@@ -63,7 +67,8 @@ def maxRw (isBackbone):
     rw = 0 + rw1 - rw2 - rw3 - rw4
     return rw
 
-def makeRw (distance, qtime, dropped):
+
+def makeRw(distance, qtime, dropped):
     delta1 = 1
     delta3 = dropped
     if delta3 == 1:
@@ -74,13 +79,10 @@ def makeRw (distance, qtime, dropped):
     rw = rw1 + rw2 - rw3
     return rw1, rw2, rw3, rw
 
-def makeRw2 (distance, qtime, dropped, delivered, isBackbone):
+
+def makeRw2(distance, qtime, dropped, delivered):
     delta1 = delivered
     delta3 = dropped
-    if isBackbone:
-        delta4 = 1
-    else:
-        delta4 = 0
     if delta3 == 1:
         delta1 = 0
     if qtime > MAXQTIME:
@@ -89,25 +91,31 @@ def makeRw2 (distance, qtime, dropped, delivered, isBackbone):
     rw1 = LAMBDA1 * delta1
     rw2 = LAMBDA2 * seconds
     rw3 = LAMBDA3 * delta3
-    rw4 = LAMBDA4 * delta4 * distance
+    rw4 = LAMBDA4 * distance
     rw = 0 + rw1 - rw2 - rw3 - rw4
     return rw1, rw2, rw3, rw4, rw
 
-def fill (vec, max):
+
+def fill(vec, max):
     if (len(vec) < max):
-        for i in range (0, max - len(vec)):
+        for i in range(0, max - len(vec)):
             vec.append(0)
         return vec
     else:
         return vec
 
+
 actionHistory = {}
-def addAction (curDst, action):
+
+
+def addAction(curDst, action):
     if actionHistory.get(curDst) is None:
         actionHistory[curDst] = collections.deque([action], AH_LENGTH)
     else:
         actionHistory[curDst].append(action)
-def getActions (curDst):
+
+
+def getActions(curDst):
     if actionHistory.get(curDst) is None:
         return []
     else:
@@ -115,58 +123,63 @@ def getActions (curDst):
 
 
 class FutureDestinations:
-    def __init__ (self):
+    def __init__(self):
         self.curDst = 0
         self.size = 5
-        self.dsts = collections.deque(maxlen = FD_LENGTH)
+        self.dsts = collections.deque(maxlen=FD_LENGTH)
 
-    def pushDst (self, dst):
+    def pushDst(self, dst):
         self.dsts.append(int(dst))
 
-    def setSize (self, size):
+    def setSize(self, size):
         self.size = int(size)
 
-    def setCurDst (self, dst):
+    def setCurDst(self, dst):
         self.curDst = int(dst)
 
-    def getCurDst (self):
+    def getCurDst(self):
         return self.curDst
 
-    def getDsts (self):
+    def getDsts(self):
         return self.dsts
 
-    def reset (self):
+    def reset(self):
         self.dsts = []
         self.curDst = 0
         self.size = 0
 
-    def show (self):
+    def show(self):
         print("Number of future destinations:", len(self.dsts))
         print("Current destination:", self.curDst)
         print("List of future destinations:")
         for dst in self.dsts:
             print(dst)
 
+
 class State:
-    def __init__ (self, nfeatures, nports):
+    def __init__(self, nfeatures, nports):
         self.destinations = FutureDestinations()
         self.prevActions = []
         self.nfeatures = nfeatures
         self.topology = None
         self.nports = nports
-    def setDsts (self, destinations):
+
+    def setDsts(self, destinations):
         self.destinations = destinations
         self.prevActions = getActions(self.destinations.getCurDst())
-    def setTopo (self, topology):
+
+    def setTopo(self, topology):
         self.topology = topology
-    def getCurDst (self):
+
+    def getCurDst(self):
         return self.destinations.getCurDst()
-    def show (self):
+
+    def show(self):
         print("Future destinations: ")
         self.destinations.show()
         print("Previous actions: ", self.prevActions)
 
-    def makeNPArray (self):
+    def makeNPArray(self):
         features = np.full(self.nfeatures, 0)
         counter = 0
         targetHost = self.topology.getNodeByIp(self.destinations.getCurDst())
@@ -197,26 +210,19 @@ class State:
 
         return features
 
-        '''
-        firstrow = []
-        firstrow.append(self.destinations.getCurDst())
-        array = np.array(object = [fill(firstrow, 5), fill(self.destinations.getDsts(), 5), fill(self.prevActions, 5)])
-        return array
-        '''
-
 
 class Packet:
-    def __init__ (self, destinations, reward):
+    def __init__(self, destinations, reward):
         self.futureDestinations = destinations
         self.reward = reward
 
-    def getDsts (self):
+    def getDsts(self):
         return self.futureDestinations
 
-    def getReward (self):
+    def getReward(self):
         return self.reward
 
-    def show (self):
+    def show(self):
         print("***************************")
         print("Packet:")
         print("Future Destinations:")
@@ -225,31 +231,33 @@ class Packet:
         print("***************************")
 
 
-def parse_req (data):
-    strdata = data.decode('UTF-8')
-    parsed = strdata.split(' ')
-    if parsed[0] == 'GETP':
-        destinations = FutureDestinations()
-        size = int(parsed[1])
-        dst = int(parsed[2])
-        destinations.setCurDst(dst)
-        lastRw = int(parsed[3])
-        max = 4 + size
-        for i in range(4, max):
-            destinations.pushDst(parsed[i])
-        pkt = Packet(destinations, lastRw)
-        return pkt
 
-class NetEnv (gym.Env):
+def parse_req(return_digest):
+    destinations = FutureDestinations()
+    destinations.setCurDst(return_digest[0][0])
+    for i in range (0, 3):
+        destinations.pushDst(return_digest[i][0])
+    #max = 4 + size
+    #for i in range(4, max):
+    #    destinations.pushDst(parsed[i])
+    latency = return_digest[0][2]
+    pkt = Packet(destinations, latency)
+    return pkt
 
-    def __init__ (self, nports, id, port):
+
+
+class NetEnv(gym.Env):
+
+    def __init__(self, nports, switch_id, port):
         self.nports = nports
-        self.id = id
-        print("initialized with nports =", nports, ", id =", id)
+        self.id = switch_id  # per esempio s9
+        self.id_num = self.id.split("s")[1]  # cosi da avere il 9
+        print("initialized with nports =", nports, ", id =", id, ", id_num =", self.id_num)
+        self.P4Runtime_connection = P4Runtime.getP4RuntimeConnection(self.id_num)
         self.action_space = spaces.Discrete(self.nports)
-        #self.observation_space = spaces.Box(low = 0, high = MAX, shape=(3, 5))
+        # self.observation_space = spaces.Box(low = 0, high = MAX, shape=(3, 5))
         self.nfeatures = (AH_LENGTH * MAXPORTS * NHOSTS) + (FD_LENGTH * NHOSTS) + NHOSTS
-        self.observation_space = spaces.Box(low = np.full(self.nfeatures, 0), high = np.full(self.nfeatures, 1))
+        self.observation_space = spaces.Box(low=np.full(self.nfeatures, 0), high=np.full(self.nfeatures, 1))
         self.state = State(self.nfeatures, self.nports)
         self.pkt = Packet(0, 0)
         self.port = port
@@ -268,9 +276,18 @@ class NetEnv (gym.Env):
         self.tmpmean2 = []
         self.counter = 0
         self.resetvar = False
-        #filelog = open(self.id + "_rl_log.txt", "w")
-        #filelog.close()
+        # filelog = open(self.id + "_rl_log.txt", "w")
+        # filelog.close()
+        if self.firstRun:
+            self.topology = topo.loadtopology()
+            self.state.setTopo(self.topology)
+            self.node = self.topology.getNode(id)
+            self.firstRun = False
+        self.firstTime_Digest = True
 
+        # self.switch_connection = P4Runtime.return_list_connected_switches()
+
+        '''
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             self.s = s
             self.s.bind((HOST_IP, self.port))
@@ -286,18 +303,19 @@ class NetEnv (gym.Env):
                     self.node = self.topology.getNode(id)
                     self.firstRun = False
                 return
+        '''
 
-    def step (self, action):
-        action = action + 1 # because action goes from 0 to N-1, while ports are counted from 1 to N
+    def step(self, action):
+        action = action + 1  # because action goes from 0 to N-1, while ports are counted from 1 to N
         info = {}
         # action contains the # of the port the packet must be forwarded to
 
         # send action back on socket
         # store action in action history
-        ret = action
+        # ret = action
         addAction(self.state.getCurDst(), action)
-        sendBack = struct.pack('I', ret)
-        self.conn.sendall(sendBack)
+        # sendBack = struct.pack('I', ret)
+        # self.conn.sendall(sendBack)
 
         ifname = self.id + "-eth" + str(action)
         interface = self.node.getPort(ifname)
@@ -315,8 +333,22 @@ class NetEnv (gym.Env):
             distance = neighbor.getDistance(targetNode)
 
         # listen on socket
-            # as msg arrives store fields in state(t + 1) and reward(t)
+        # as msg arrives store fields in state(t + 1) and reward(t)
 
+        # list_counter = P4Runtime.getCounterValue()
+        # self.state.makeNPArray()
+        if self.firstTime_Digest:
+            return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                            int(self.id_num) - 1)
+            self.firstTime_Digest = False
+        return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                        int(self.id_num) - 1)
+
+        self.pkt = parse_req(return_digest)
+
+        # check for the "if not data"
+
+        '''
         try:
             data = self.conn.recv(512)
             if not data:
@@ -328,11 +360,12 @@ class NetEnv (gym.Env):
             print("Exception occured:", e)
             self.conn.close()
             self.s.close()
+        '''
 
+        self.state.setDsts(self.pkt.getDsts())
         done = False
-        isBackbone = "s" in self.id
         qtime = self.pkt.getReward()
-        rw1, rw2, rw3, rw4, rw = makeRw2(distance, qtime, dropped, delivered, isBackbone)
+        rw1, rw2, rw3, rw4, rw = makeRw2(distance, qtime, dropped, delivered)
         '''
         filelog = open(self.id + "_rl_log.txt", "a")
 
@@ -354,6 +387,7 @@ class NetEnv (gym.Env):
         self.tmpmean2.append(rw2)
         self.meanrw.append(sum(self.tmpmean) / len(self.tmpmean))
         self.meanrw2.append(sum(self.tmpmean2) / len(self.tmpmean2))
+        '''
         if (self.counter % PLOT_FREQ) == 0 and self.counter >= PLOT_SOIL:
             fig, axs = plt.subplot_mosaic([
                 ["upL", "upR"],
@@ -383,26 +417,34 @@ class NetEnv (gym.Env):
             plt.rcParams["figure.figsize"] = (20,10)
             plt.savefig(self.id + "_rw.png", dpi = 300)
             plt.clf()
+        '''
         print(self.sumrw / len(self.rw))
         return self.state.makeNPArray(), rw, done, info
 
-    def reset (self):
+    def render(self, mode="human", close=False):
+        print("render called")
+
+    def reset(self, seed=None):
         # listen on socket
-            # as msg arrives store fields in state, drop reward
+        # as msg arrives store fields in state, drop reward
+
         if not self.resetvar:
-            try:
-                data = self.conn.recv(512)
-                if not data:
-                    return
-                pkt = parse_req(data)
-                self.state.setDsts(pkt.getDsts())
-            except Exception:
-                self.conn.close()
-                self.s.close()
+            if self.firstTime_Digest:
+                return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                            int(self.id_num) - 1)
+                self.firstTime_Digest = False
+
+            return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                        int(self.id_num) - 1)
+
+            pkt = parse_req(return_digest)
+
+            self.state.setDsts(pkt.getDsts())
 
         self.resetvar = True
 
         return self.state.makeNPArray()
 
-    def render (self, mode="human", close=False):
-        print("render called")
+# def variable_to_get(counter):
+
+# def next_destination():

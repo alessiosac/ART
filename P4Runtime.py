@@ -30,9 +30,11 @@ p4info_value = 'build/ibn.p4.p4info.txt'
 
 p4info_helper = helper.P4InfoHelper(p4info_value)
 
-digest_queue = queue.Queue()
-
 ready = [False for _ in range(0, 9)]
+
+switch_turning_on_time = [0 for _ in range(0, 9)]
+
+firstTime = 0
 
 
 def ipv4_lpm_add(p4info_helper, switch_id, ingress_sw, table_name, action_name, dst_ip_addr, splitted):
@@ -214,7 +216,7 @@ def define_connection(bmv2_file_path, switch_id):
                         group_add(p4info_helper, switch, table_name, action_name, ecmp_group_id, ecmp_hash,
                                   dst_eth_addr, port)
 
-        #connected_switches.append(switch)
+        # connected_switches.append(switch)
 
         return switch
 
@@ -248,9 +250,9 @@ def connect_switches_to_controller(switch_id):
         print("\nBMv2 JSON file not found: %s\nHave you run 'make'?" % args.bmv2_json)
         parser.exit(1)
 
-    #for switch_id in range(1, switch_id):
-    define_connection(args.bmv2_json, switch_id)
-        # readTableRules(p4info_helper, connected_switches[switch_id-1])
+    # for switch_id in range(1, switch_id):
+    return define_connection(args.bmv2_json, switch_id)
+    # readTableRules(p4info_helper, connected_switches[switch_id-1])
 
     # = helper.P4InfoHelper(args.p4info)
 
@@ -268,58 +270,122 @@ def bitstring_to_decimal(bitstring):
     return decimal_value
 
 
-def printDigests(sw, idx, lock):
-    lock.acquire()
+def printDigests(sw, idx, firstTime):
+    # lock.acquire()
     print("Start checking digests for s%d" % (idx + 1))
-    ready[idx] = True
-    lock.release()
+    # ready[idx] = True
+    # lock.release()
 
-    print("Print Digest")
-    print(sw)
+    # print("Print Digest")
+    # print(sw)
 
     # TODO this is hardcoded and retrieved from the build/file.txt folder
     DIGEST_ID = 391276020
+    try:
+        digest_entry = p4info_helper.BuildDigestEntry(digest_id=DIGEST_ID)
+        sw.SendDigestEntry(digest_entry)
+    except Exception as e:
+        # print(f"Error from digest Entry: {e}")
+        pass
 
-    digest_entry = p4info_helper.BuildDigestEntry(digest_id=DIGEST_ID)
-    sw.SendDigestEntry(digest_entry)
-    srcAddr, size, arrivalTime = None, None, None
-    while True:
+    digest_queue = []
+
+    srcAddr, dstAddr, size, arrivalTime = None, None, None, None
+    src_group = 0
+    dst_group = 0
+    while len(digest_queue) != 3:
         for msgs in sw.StreamDigestMessages(digest_id=DIGEST_ID):
             for members in msgs.data:
                 if members.WhichOneof('data') == 'struct':
                     if members.struct.members[0].WhichOneof('data') == 'bitstring':
                         x = members.struct.members[0].bitstring
                         srcAddr = bitstring_to_ip(x)
+                        src_group = srcAddr.split(".")[2]
                         print(srcAddr)
                     if members.struct.members[1].WhichOneof('data') == 'bitstring':
-                        size = int.from_bytes(members.struct.members[1].bitstring, byteorder='big')
-                        print(size)
+                        x = members.struct.members[1].bitstring
+                        dstAddr = bitstring_to_ip(x)
+                        dst_group = dstAddr.split(".")[2]
+                        print(dstAddr)
                     if members.struct.members[2].WhichOneof('data') == 'bitstring':
-                        arrivalTime = bitstring_to_decimal(members.struct.members[2].bitstring)
+                        size = int.from_bytes(members.struct.members[2].bitstring, byteorder='big')
+                        print(size)
+                    if members.struct.members[3].WhichOneof('data') == 'bitstring':
+                        # print(members.struct.members[2].bitstring)
+                        arrivalTime = int(bitstring_to_decimal(members.struct.members[3].bitstring))
                         print(arrivalTime)
-                    digest_queue.put([srcAddr, size, arrivalTime])
-                    return
+
+                    if firstTime:
+                        try:
+                            if int(src_group) == (idx + 1):
+                                with open("arriving_time_s" + str(idx + 1) + ".txt",
+                                          'w') as file:  # se io sono lo switch sorgente scrivo il tempo di accensione
+                                    # first_time_arrival_time = arrivalTime
+                                    file.write("%d\n" % arrivalTime)
+                                    switch_turning_on_time[idx] = arrivalTime
+                                    file.close()
+                            return None
+                        except Exception as e:
+                            print(f"Error from file printDigest writing: {e}")
+
+                    if not firstTime:
+                        try:
+                            if int(src_group) == (idx + 1): #se sono lo switch sorgente scrivo quando e' arrivato il pacchetto
+                                with open("latency_s" + str(src_group) + "_s" + str(dst_group)+".txt", 'a') as file:
+                                    file.write("%d" % arrivalTime)
+                                    file.close()
+                            else:
+                                # se sono lo switch destinatario, leggo dal sorgente quando e' arrivato il pacchetto
+                                with open("latency_s" + str(src_group) + "_s" + str(dst_group)+".txt", 'r') as file:
+                                    src_arr_time = file.read()
+                                    latency = int(arrivalTime) - int(src_arr_time) - int(switch_turning_on_time[int(src_group)-1]) - (int(switch_turning_on_time[int(src_group)-1]) - int(switch_turning_on_time[int(dst_group)-1]))
+                                    print("Latency: %d" % latency)
+                                    digest_queue.append([dstAddr, size, latency])
+                                    file.close()
+                        except Exception as e:
+                            print(f"Error from file printDigest reading: {e}")
+
+    return digest_queue
 
 
 def getP4RuntimeConnection(switch_id):
-    #connect_switches_to_controller()
+    # connect_switches_to_controller()
     connection = connect_switches_to_controller(int(switch_id))
-    print("GetP4RuntimeConnection")
-    print(connection)
-    print("-----")
-    #print(connected_switches)
+    # print("GetP4RuntimeConnection")
+    # print(connection)
+    # print("-----")
+    # print(connected_switches)
     return connection
 
 
-def get_from_digest(connection, switch_id):
-    ready[int(switch_id)-1] = False
-    lock = threading.Lock()
-    print("Get from digest")
-    print(connection)
-    t = threading.Thread(target=printDigests, args=(connection, switch_id, lock))
-    t.start()
+def get_from_digest(connection, firstTime, switch_id):
+    # ready[int(switch_id) - 1] = False
+    # lock = threading.Lock()
+    # print("Get from digest")
+    # print(connection)
+    # t = threading.Thread(target=printDigests, args=(connection, switch_id, lock))
+    # t.start()
 
-    #CHECK
+    # Alla ricezione del primo pacchetto, ogni switch scrive un file in cui salva il valore del proprio timestamp
+    # Dal secondo pacchetto in poi (quando firstTime e' negativo), ogni switch legge dai file il valore di ogni altro switch, riempie un vettore coi tempi di arrivo e cancella il file cos da evitare continui letture su file
+
+    if not firstTime and len(switch_turning_on_time) < NUMBER_SWITCHES:
+        for x in range(1, NUMBER_SWITCHES + 1):
+            file_path = "arriving_time_s" + str(x) + ".txt"
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r') as file:
+                        starting_time = file.read()
+                        print("Starting time for switch s%s: %s\n" % (x, starting_time))
+                        switch_turning_on_time[x - 1] = int(starting_time)
+                        file.close()
+                   #os.remove(file_path)
+                except Exception as e:
+                    print(f"Error from file get_from_digest function: {e}")
+
+    return_digest = printDigests(connection, switch_id, firstTime)
+    # CHECK
+    '''
     while True:
         lock.acquire()
         result = True
@@ -330,12 +396,12 @@ def get_from_digest(connection, switch_id):
             break
         else:
             lock.release()
-    
-    return_digest = digest_queue.get()
+    '''
+
     return return_digest
 
 
-#connect_switches_to_controller()
+# connect_switches_to_controller()
 
 # p4info_helper = connect_switches_to_controller()
 '''
