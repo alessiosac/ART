@@ -123,11 +123,11 @@ class Topology:
     def getNodes (self):
         return self.nodes
 
-    def getNeighbor (self, node, port):
+    def getNeighbor(self, node, port):
         n = self.getNode(node)
         return n.getPort(port).getNeighbor()
 
-    def getNodeByIp (self, ip):
+    def getNodeByIp(self, ip):
         for node in self.nodes:
             for portname in node.getPorts():
                 port = node.getPort(portname)

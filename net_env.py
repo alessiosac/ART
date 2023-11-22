@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 
 # PORT, HOST_IP = 1400, '0.0.0.0'
 MAX = 4294967295
-AH_LENGTH = 3  # max 5
-FD_LENGTH = 3  # max 5
+AH_LENGTH = 2  # max 5
+FD_LENGTH = 2  # max 5
 LAMBDA1 = 1
 LAMBDA2 = 5  # 0.5
 LAMBDA3 = 1
@@ -49,6 +49,9 @@ def minRw(isBackbone):
     rw = 0 + rw1 - rw2 - rw3 - rw4
     return rw
 
+def ip2long(ip):
+    packedIP = socket.inet_aton(ip)
+    return struct.unpack("!L", packedIP)[0]
 
 def maxRw(isBackbone):
     if isBackbone:
@@ -125,7 +128,7 @@ def getActions(curDst):
 class FutureDestinations:
     def __init__(self):
         self.curDst = 0
-        self.size = 5
+        self.size = 2
         self.dsts = collections.deque(maxlen=FD_LENGTH)
 
     def pushDst(self, dst):
@@ -234,9 +237,10 @@ class Packet:
 
 def parse_req(return_digest):
     destinations = FutureDestinations()
-    destinations.setCurDst(return_digest[0][0])
-    for i in range (0, 3):
-        destinations.pushDst(return_digest[i][0])
+
+    destinations.setCurDst(ip2long(return_digest[0][0]))
+    for i in range(0, 2):
+        destinations.pushDst(ip2long(return_digest[i][0]))
     #max = 4 + size
     #for i in range(4, max):
     #    destinations.pushDst(parsed[i])
@@ -337,6 +341,8 @@ class NetEnv(gym.Env):
 
         # list_counter = P4Runtime.getCounterValue()
         # self.state.makeNPArray()
+        #return_digest = None
+        #while return_digest is None:
         if self.firstTime_Digest:
             return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
                                                             int(self.id_num) - 1)
@@ -428,14 +434,19 @@ class NetEnv(gym.Env):
         # listen on socket
         # as msg arrives store fields in state, drop reward
 
-        if not self.resetvar:
-            if self.firstTime_Digest:
+        self.firstTime_Digest = True
+        return_digest = None
+        while return_digest is None:
+            if not self.resetvar:
+                if self.firstTime_Digest:
+                    return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                                int(self.id_num) - 1)
+                    self.firstTime_Digest = False
+
                 return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
                                                             int(self.id_num) - 1)
-                self.firstTime_Digest = False
 
-            return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
-                                                        int(self.id_num) - 1)
+            print(return_digest)
 
             pkt = parse_req(return_digest)
 

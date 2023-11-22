@@ -20,6 +20,7 @@ UPPER_SWITCHES = [2, 3, 4, 5]
 
 subnet_identification = {"1": ("10.0.1.1", "10.0.1.4"), "6": ("10.0.6.2", "10.0.6.5"), "7": ("10.0.7.3", "10.0.7.6"),
                          "8": ("10.0.8.7", "10.0.8.8"), "9": ("10.0.9.9", "10.0.9.10")}
+
 num_of_host_per_subnet = 2
 
 connected_switches = []
@@ -293,7 +294,7 @@ def printDigests(sw, idx, firstTime):
     srcAddr, dstAddr, size, arrivalTime = None, None, None, None
     src_group = 0
     dst_group = 0
-    while len(digest_queue) != 3:
+    while len(digest_queue) != 2:
         for msgs in sw.StreamDigestMessages(digest_id=DIGEST_ID):
             for members in msgs.data:
                 if members.WhichOneof('data') == 'struct':
@@ -315,7 +316,7 @@ def printDigests(sw, idx, firstTime):
                         arrivalTime = int(bitstring_to_decimal(members.struct.members[3].bitstring))
                         print(arrivalTime)
 
-                    if firstTime:
+                    if firstTime or not os.path.exists("arriving_time_s" + str(idx + 1) + ".txt"):
                         try:
                             if int(src_group) == (idx + 1):
                                 with open("arriving_time_s" + str(idx + 1) + ".txt",
@@ -324,28 +325,40 @@ def printDigests(sw, idx, firstTime):
                                     file.write("%d\n" % arrivalTime)
                                     switch_turning_on_time[idx] = arrivalTime
                                     file.close()
-                            return None
+                                    return None
                         except Exception as e:
                             print(f"Error from file printDigest writing: {e}")
 
-                    if not firstTime:
+                    if not firstTime or not os.path.exists("latency_s" + str(src_group) + "_s" + str(dst_group)+".txt"):
                         try:
+                            file_path = "latency_s" + str(src_group) + "_s" + str(dst_group)+".txt"
                             if int(src_group) == (idx + 1): #se sono lo switch sorgente scrivo quando e' arrivato il pacchetto
-                                with open("latency_s" + str(src_group) + "_s" + str(dst_group)+".txt", 'a') as file:
+                                with open(file_path, 'a') as file:
                                     file.write("%d" % arrivalTime)
                                     file.close()
                             else:
                                 # se sono lo switch destinatario, leggo dal sorgente quando e' arrivato il pacchetto
-                                with open("latency_s" + str(src_group) + "_s" + str(dst_group)+".txt", 'r') as file:
+                                with open(file_path, 'r') as file:
                                     src_arr_time = file.read()
-                                    latency = int(arrivalTime) - int(src_arr_time) - int(switch_turning_on_time[int(src_group)-1]) - (int(switch_turning_on_time[int(src_group)-1]) - int(switch_turning_on_time[int(dst_group)-1]))
-                                    print("Latency: %d" % latency)
-                                    digest_queue.append([dstAddr, size, latency])
                                     file.close()
+                                    os.remove(file_path)
+                                print("Arrival time: %d" % arrivalTime)
+
+                                print("Accensione switch sorgente: %d" % switch_turning_on_time[int(src_group)-1])
+                                print("Accensione switch dest: %d" % switch_turning_on_time[int(dst_group)-1])
+                                print("Partenza: %d" % int(src_arr_time))
+                                #time.sleep(500)
+
+                                #latency = int(arrivalTime) - int(src_arr_time) - int(switch_turning_on_time[int(src_group)-1]) - (int(switch_turning_on_time[int(src_group)-1]) + int(switch_turning_on_time[int(dst_group)-1]))
+                                #latency = abs((int(arrivalTime) - int(switch_turning_on_time[int(dst_group)-1])) - (int(src_arr_time) - int(switch_turning_on_time[int(src_group)-1])))
+                                latency = abs((int(switch_turning_on_time[int(dst_group)-1]) - int(switch_turning_on_time[int(src_group)-1])) + (int(arrivalTime)-int(src_arr_time)))
+                                print("Latency: %d" % latency)
+                                digest_queue.append([dstAddr, size, latency])
                         except Exception as e:
                             print(f"Error from file printDigest reading: {e}")
-
-    return digest_queue
+                            pass
+            if len(digest_queue) >= 3:
+                return digest_queue
 
 
 def getP4RuntimeConnection(switch_id):
@@ -369,8 +382,9 @@ def get_from_digest(connection, firstTime, switch_id):
     # Alla ricezione del primo pacchetto, ogni switch scrive un file in cui salva il valore del proprio timestamp
     # Dal secondo pacchetto in poi (quando firstTime e' negativo), ogni switch legge dai file il valore di ogni altro switch, riempie un vettore coi tempi di arrivo e cancella il file cos da evitare continui letture su file
 
-    if not firstTime and len(switch_turning_on_time) < NUMBER_SWITCHES:
-        for x in range(1, NUMBER_SWITCHES + 1):
+    if not firstTime or len(switch_turning_on_time) < 5:
+        switch_list = [1,6,7,8,9]
+        for x in switch_list:
             file_path = "arriving_time_s" + str(x) + ".txt"
             if os.path.exists(file_path):
                 try:
@@ -382,6 +396,7 @@ def get_from_digest(connection, firstTime, switch_id):
                    #os.remove(file_path)
                 except Exception as e:
                     print(f"Error from file get_from_digest function: {e}")
+                    pass
 
     return_digest = printDigests(connection, switch_id, firstTime)
     # CHECK
