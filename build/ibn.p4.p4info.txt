@@ -1,0 +1,204 @@
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 43260535
+    name: "MyIngress.ecmp_group_to_nhopA"
+    alias: "ecmp_group_to_nhopA"
+  }
+  match_fields {
+    id: 1
+    name: "meta.ecmp_group_id"
+    bitwidth: 14
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "meta.ecmp_hash"
+    bitwidth: 14
+    match_type: EXACT
+  }
+  action_refs {
+    id: 25652968
+  }
+  action_refs {
+    id: 31368812
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 37240448
+    name: "MyIngress.ipv4_lpmA"
+    alias: "ipv4_lpmA"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 31368812
+  }
+  action_refs {
+    id: 31456142
+  }
+  action_refs {
+    id: 25652968
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 48099580
+    name: "MyIngress.next_hop_forwarding"
+    alias: "next_hop_forwarding"
+  }
+  action_refs {
+    id: 19266470
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  size: 1024
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 25652968
+    name: "MyIngress.drop"
+    alias: "drop"
+  }
+}
+actions {
+  preamble {
+    id: 31456142
+    name: "MyIngress.ecmp_groupA"
+    alias: "ecmp_groupA"
+  }
+  params {
+    id: 1
+    name: "ecmp_group_id"
+    bitwidth: 14
+  }
+  params {
+    id: 2
+    name: "num_nhops"
+    bitwidth: 16
+  }
+}
+actions {
+  preamble {
+    id: 31368812
+    name: "MyIngress.set_nhopA"
+    alias: "set_nhopA"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 19266470
+    name: "MyIngress.nhop_dest"
+    alias: "nhop_dest"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+}
+counters {
+  preamble {
+    id: 308204046
+    name: "MyIngress.most_used_port_per_switch"
+    alias: "most_used_port_per_switch"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 65536
+}
+digests {
+  preamble {
+    id: 391276020
+    name: "to_digest"
+    alias: "to_digest"
+  }
+  type_spec {
+    struct {
+      name: "to_digest"
+    }
+  }
+}
+type_info {
+  structs {
+    key: "to_digest"
+    value {
+      members {
+        name: "srcAddr"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 32
+            }
+          }
+        }
+      }
+      members {
+        name: "dstAddr"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 32
+            }
+          }
+        }
+      }
+      members {
+        name: "packet_length"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 32
+            }
+          }
+        }
+      }
+      members {
+        name: "timestamp"
+        type_spec {
+          bitstring {
+            bit {
+              bitwidth: 48
+            }
+          }
+        }
+      }
+    }
+  }
+}

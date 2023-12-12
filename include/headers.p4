@@ -65,6 +65,7 @@ header tcp_t{
 }
 
 struct to_digest{
+    ip4Addr_t srcAddr;
     ip4Addr_t dstAddr;
     bit<32> packet_length;
     bit<48> timestamp;

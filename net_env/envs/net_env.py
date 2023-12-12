@@ -1,3 +1,6 @@
+import random
+import time
+
 import gymnasium as gym
 from gymnasium import spaces
 import socket
@@ -8,16 +11,17 @@ import numpy as np
 import json
 import os
 
+from sklearn.preprocessing import OneHotEncoder
+
 import P4Runtime
 import loadtopo as topo
 from math import log
 import matplotlib.pyplot as plt
 
-
 # PORT, HOST_IP = 1400, '0.0.0.0'
 MAX = 4294967295
-AH_LENGTH = 2  # max 5
-FD_LENGTH = 2  # max 5
+AH_LENGTH = 4  # max 5
+FD_LENGTH = 4  # max 5
 LAMBDA1 = 1
 LAMBDA2 = 5  # 0.5
 LAMBDA3 = 1
@@ -31,6 +35,27 @@ MAXDISTANCE = 4
 PLOT_FREQ = 1000
 PLOT_SOIL = 0
 MEANSTEP = 250
+
+from collections import defaultdict
+
+
+dst_dict = {"10.0.1.1": 1, "10.0.1.4": 4, "10.0.6.2": 2, "10.0.6.5": 5, "10.0.7.3": 3, "10.0.7.6": 6,
+            "10.0.8.7": 7, "10.0.8.8": 8, "10.0.9.9": 9, "10.0.9.10": 10}
+
+
+class ValueEncoder:
+    def __init__(self):
+        self.value_to_id = {}
+        self.id_counter = 1  # Start from 1 to avoid conflicts with default value (0)
+
+    def encode_value(self, value):
+        if value not in self.value_to_id:
+            self.value_to_id[value] = self.id_counter
+            self.id_counter += 1
+        return self.value_to_id[value]
+
+# Example usage
+encoder = ValueEncoder()
 
 
 def minRw(isBackbone):
@@ -49,6 +74,11 @@ def minRw(isBackbone):
     rw4 = LAMBDA4 * delta4 * MAXDISTANCE
     rw = 0 + rw1 - rw2 - rw3 - rw4
     return rw
+
+
+def ip2long(ip):
+    packedIP = socket.inet_aton(ip)
+    return struct.unpack("!L", packedIP)[0]
 
 
 def maxRw(isBackbone):
@@ -81,20 +111,14 @@ def makeRw(distance, qtime, dropped):
     return rw1, rw2, rw3, rw
 
 
-def makeRw2(distance, qtime, dropped, delivered):
-    delta1 = delivered
-    delta3 = dropped
-    if delta3 == 1:
-        delta1 = 0
+def makeRw2(distance, qtime):
     if qtime > MAXQTIME:
         qtime = MAXQTIME
     seconds = qtime / 1000000
-    rw1 = LAMBDA1 * delta1
     rw2 = LAMBDA2 * seconds
-    rw3 = LAMBDA3 * delta3
     rw4 = LAMBDA4 * distance
-    rw = 0 + rw1 - rw2 - rw3 - rw4
-    return rw1, rw2, rw3, rw4, rw
+    rw = 0 - rw2 - rw4
+    return rw2, rw4, rw
 
 
 def fill(vec, max):
@@ -104,6 +128,7 @@ def fill(vec, max):
         return vec
     else:
         return vec
+
 
 actionHistory = {}
 
@@ -125,7 +150,7 @@ def getActions(curDst):
 class FutureDestinations:
     def __init__(self):
         self.curDst = 0
-        self.size = 5
+        self.size = 2
         self.dsts = collections.deque(maxlen=FD_LENGTH)
 
     def pushDst(self, dst):
@@ -179,36 +204,43 @@ class State:
         self.destinations.show()
         print("Previous actions: ", self.prevActions)
 
-    def makeNPArray(self):
+    def makeArray(self):
         features = np.full(self.nfeatures, 0)
+        list_nhop = np.full(5, 0)
         counter = 0
-        targetHost = self.topology.getNodeByIp(self.destinations.getCurDst())
-        index = (counter * NHOSTS) + (int(targetHost[1]) - 1)
-        features[index] = 1
-        futureDestinations = self.destinations.getDsts()
-        for fd in futureDestinations:
-            counter += 1
-            targetHost = self.topology.getNodeByIp(fd)
+        try:
+            targetHost = self.topology.getNodeByIp(self.destinations.getCurDst())
             index = (counter * NHOSTS) + (int(targetHost[1]) - 1)
-            features[index] = 1
-        for i in range(0, FD_LENGTH - len(futureDestinations)):
-            counter += 1
-        start = (counter * NHOSTS) + NHOSTS
-        counter = 0
-        hosts = self.topology.getHosts()
-        for h in hosts:
-            hostname = h.getName()
-            if actionHistory.get(hostname) is not None:
-                ah = actionHistory[hostname]
-                for action in ah:
-                    action -= 1
-                    index = start + ((counter * self.nports) + action)
-                    features[index] = 1
-                    counter += 1
-            start += (MAXPORTS * AH_LENGTH)
+            features[index % 5] = 1
+            futureDestinations = self.destinations.getDsts()
+            for fd in futureDestinations:
+                counter += 1
+                targetHost = self.topology.getNodeByIp(fd)
+                index = (counter * NHOSTS) + (int(targetHost[1]) - 1)
+                features[index % 5] = 1
+            for i in range(0, FD_LENGTH - len(futureDestinations)):
+                counter += 1
+            start = (counter * NHOSTS) + NHOSTS
             counter = 0
-
-        return features
+            hosts = self.topology.getHosts()
+            for h in hosts:
+                hostname = h.getName()
+                if actionHistory.get(hostname) is not None:
+                    ah = actionHistory[hostname]
+                    for action in ah:
+                        action -= 1
+                        index = start + ((counter * self.nports) + action)
+                        features[index % 5] = 1
+                        counter += 1
+                start += (MAXPORTS * AH_LENGTH)
+                counter = 0
+            list_possible_nhop = [] # if different nhop are equal because there is not congestion
+            for i in range(0, leng(features)):
+                if features[i] == 1:
+                    list_nhop[i] = 1
+            return features
+        except:
+            print ("Problem with list_nhop. Need to debug")
 
 
 class Packet:
@@ -230,36 +262,37 @@ class Packet:
         print("Last reward:", self.reward)
         print("***************************")
 
-'''
-def parse_req(data):
-    strdata = data.decode('UTF-8')
-    parsed = strdata.split(' ')
-    if parsed[0] == 'GETP':
-        destinations = FutureDestinations()
-        size = int(parsed[1])
-        dst = int(parsed[2])
-        destinations.setCurDst(dst)
-        lastRw = int(parsed[3])
-        max = 4 + size
-        for i in range(4, max):
-            destinations.pushDst(parsed[i])
-        pkt = Packet(destinations, lastRw)
-        return pkt
-'''
+
+def parse_req(return_digest):
+    destinations = FutureDestinations()
+
+    destinations.setCurDst(ip2long(return_digest[0]))
+    for i in range(0, 2):
+        destinations.pushDst(ip2long(return_digest[0]))
+    # max = 4 + size
+    # for i in range(4, max):
+    #    destinations.pushDst(parsed[i])
+    latency = return_digest[0][2]
+    pkt = Packet(destinations, latency)
+    return pkt
 
 
 class NetEnv(gym.Env):
 
-    def __init__(self, nports, switch_id, port):
-        self.nports = nports
-        self.id = switch_id #per esempio s9
-        self.id_num = self.id.split("s")[1] #cosi da avere il 9
-        print("initialized with nports =", nports, ", id =", id, ", id_num =", self.id_num)
-        self.P4Runtime_connection = P4Runtime.getP4RuntimeConnection(self.id_num)
+    def __init__(self, switch_id, port):
+        self.nports = 6
+        self.id = switch_id  # per esempio s9
+        self.id_num = int(self.id.split("s")[1])  # cosi da avere il numero dello switch: s9 --> 9
+        # print("initialized with nports =", nports, ", id =", id, ", id_num =", self.id_num)
+        # self.P4Runtime_connection = P4Runtime.getP4RuntimeConnection(self.id_num)
         self.action_space = spaces.Discrete(self.nports)
         # self.observation_space = spaces.Box(low = 0, high = MAX, shape=(3, 5))
         self.nfeatures = (AH_LENGTH * MAXPORTS * NHOSTS) + (FD_LENGTH * NHOSTS) + NHOSTS
-        self.observation_space = spaces.Box(low=np.full(self.nfeatures, 0), high=np.full(self.nfeatures, 1))
+        # self.nfeatures = 5
+        # self.observation_space = spaces.Box(low=np.full(self.nfeatures, 0), high=np.full(self.nfeatures, 1))
+        self.observation_space = spaces.Box(low = 0, high = 3, shape=(3,))
+
+        # self.observation_space = spaces.Discrete(self.nports)
         self.state = State(self.nfeatures, self.nports)
         self.pkt = Packet(0, 0)
         self.port = port
@@ -286,7 +319,11 @@ class NetEnv(gym.Env):
             self.node = self.topology.getNode(id)
             self.firstRun = False
 
-        #self.switch_connection = P4Runtime.return_list_connected_switches()
+        self.firstTime_Digest = True
+
+        self.connection_to_controller = P4Runtime.getP4RuntimeConnection(self.id_num)
+        time.sleep(3)
+        self.switch_turning_on_time = P4Runtime.getSwitchesTurningOnTime()
 
         '''
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -307,6 +344,7 @@ class NetEnv(gym.Env):
         '''
 
     def step(self, action):
+        global return_digest
         action = action + 1  # because action goes from 0 to N-1, while ports are counted from 1 to N
         info = {}
         # action contains the # of the port the packet must be forwarded to
@@ -317,13 +355,14 @@ class NetEnv(gym.Env):
         addAction(self.state.getCurDst(), action)
         # sendBack = struct.pack('I', ret)
         # self.conn.sendall(sendBack)
-
         ifname = self.id + "-eth" + str(action)
         interface = self.node.getPort(ifname)
         targetNode = self.topology.getNodeByIp(self.state.getCurDst())
         neighbor = interface.getNeighbor()
-        dropped = 0
-        delivered = 0
+        truncated = False
+        if neighbor is None:
+            nhop = 1  # dst to the host
+            return nhop, 1, True, truncated, info
         if "h" in neighbor.getName():
             distance = 0
             if targetNode != neighbor.getName():
@@ -338,9 +377,33 @@ class NetEnv(gym.Env):
 
         # list_counter = P4Runtime.getCounterValue()
         # self.state.makeNPArray()
+        # return_digest = None
+        # while return_digest is None:
+        # if self.firstTime_Digest:
+        #    return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+        #                                                   int(self.id_num) - 1)
+        # self.firstTime_Digest = False
+        #i = 0
+        return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
+        self.pkt = parse_req(return_digest)
 
+        if return_digest[2] <= 0 or return_digest[2] is None:
+            print("No more data")
+            nhop = self.state.makeArray()
+            try:
+                P4Runtime.NextHop(self.connection_to_controller, nhop)
+            except:
+                print("P4runtime error")
 
-        dstAddr, size, time = P4Runtime.get_from_digest(self.P4Runtime_connection, int(self.id_num)-1)
+            return_array = np.array(return_digest, dtype=np.int64)
+
+            value_from_dict = dst_dict.get(return_array[0])
+
+            return_array[0] = int(value_from_dict)
+            return_array[1] = int(return_array[1])
+            return_array[2] = int(return_array[2])
+
+            return return_array, self.pkt.getReward(), True, truncated, info
 
         # check for the "if not data"
 
@@ -358,20 +421,11 @@ class NetEnv(gym.Env):
             self.s.close()
         '''
 
-        self.state.setDsts(dstAddr)
+        self.state.setDsts(self.pkt.getDsts())
         done = False
-        qtime = time
-        rw1, rw2, rw3, rw4, rw = makeRw2(distance, qtime, dropped, delivered)
-        '''
-        filelog = open(self.id + "_rl_log.txt", "a")
-
-        filelog.write("destination: " + targetNode + ", action: " + str(action) +
-            ", rw = " + str(rw) + " (distance: " + str(distance) + ", qtime: " + str(qtime) + ")\n")
-        filelog.close()
-        '''
-        self.rw1.append(rw1)
+        qtime = self.pkt.getReward()
+        rw2, rw4, rw = makeRw2(distance, qtime)
         self.rw2.append(rw2)
-        self.rw3.append(rw3)
         self.rw4.append(rw4)
         self.rw.append(rw)
         self.sumrw += rw
@@ -414,23 +468,77 @@ class NetEnv(gym.Env):
             plt.savefig(self.id + "_rw.png", dpi = 300)
             plt.clf()
         '''
+        return_array = np.array(return_digest, dtype=np.int64)
+
+        value_from_dict = dst_dict.get(return_array[0])
+
+        return_array[0] = int(value_from_dict)
+        return_array[1] = int(return_array[1])
+        return_array[2] = int(return_array[2])
+
         print(self.sumrw / len(self.rw))
-        return self.state.makeNPArray(), rw, done, info
+        return return_array, rw, True, truncated, info
 
     def render(self, mode="human", close=False):
         print("render called")
 
-    def reset(self, seed=None):
+    def reset(self, seed=None, options=None):
         # listen on socket
         # as msg arrives store fields in state, drop reward
 
-        if not self.resetvar:
-            dst, size, time = P4Runtime.get_from_digest(self.P4Runtime_connection,  int(self.id_num)-1)
-            self.state.setDsts(dst)
+        # self.firstTime_Digest = True
+        # return_digest = None
+        # while return_digest is None:
+        '''
+            if not self.resetvar:
+                if self.firstTime_Digest:
+                    return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                                int(self.id_num) - 1)
+                    self.firstTime_Digest = False
 
-        self.resetvar = True
+                return_digest = P4Runtime.get_from_digest(self.P4Runtime_connection, self.firstTime_Digest,
+                                                            int(self.id_num) - 1)
 
-        return self.state.makeNPArray()
+        print(return_digest)
+        '''
+
+        global return_digest
+        if self.firstTime_Digest is False:
+            try:
+                return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
+                while return_digest[2] is None or return_digest[2] <= 0:
+                    return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
+                pkt = parse_req(return_digest)
+                self.state.setDsts(pkt.getDsts())
+                self.firstTime_Digest = True
+            except:
+                print("Some error. Need to debug")
+
+        # self.resetvar = True
+
+        # x = self.state.makeNPArray()
+
+        # print(x)
+
+        # x = self.state.makeArray()
+        # print(x)
+
+        #encoder_id = encoder.encode_value(return_digest[0])
+
+        #return_digest[0] = encoder_id
+
+
+        value_from_dict = dst_dict.get(return_digest[0])
+
+        #return_array = np.array(return_digest, dtype=np.int64)
+
+        return_array = np.array([0,0,0], dtype=np.int64)
+
+        return_array[0] = int(value_from_dict)
+        return_array[1] = int(return_digest[1])
+        return_array[2] = int(return_digest[2])
+
+        return return_array, {}
 
 # def variable_to_get(counter):
 

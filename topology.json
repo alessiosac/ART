@@ -1,4 +1,7 @@
 {
+  "pcap_dump": false,
+  "enable_log": false,
+  "assignment_strategy": "l3",
   "hosts": {
       "h1": {"ip":"10.0.1.1/24", "mac":"00:00:0a:00:01:01", "commands":["route add default gw 10.0.1.254 dev eth0",
                   "arp -i eth0 -s 10.0.1.254 01:01:01:01:01:01", "arp -i eth0 -s 10.0.1.4 00:00:0a:00:01:04"]

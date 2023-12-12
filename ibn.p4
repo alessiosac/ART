@@ -129,7 +129,7 @@ control MyIngress(inout headers hdr,
 
         if (hdr.ipv4.isValid()){
 
-            //next_hop_forwarding.apply();
+            next_hop_forwarding.apply();
          
             switch (ipv4_lpmA.apply().action_run){
                 ecmp_groupA:{
@@ -137,9 +137,7 @@ control MyIngress(inout headers hdr,
                 }
             }
 
-
-
-        digest<to_digest>(1, {hdr.ipv4.dstAddr, standard_metadata.packet_length, standard_metadata.ingress_global_timestamp});
+        digest<to_digest>(1, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, standard_metadata.packet_length, standard_metadata.ingress_global_timestamp});
 
 
         }

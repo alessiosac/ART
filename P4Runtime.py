@@ -23,7 +23,7 @@ subnet_identification = {"1": ("10.0.1.1", "10.0.1.4"), "6": ("10.0.6.2", "10.0.
 
 num_of_host_per_subnet = 2
 
-connected_switches = []
+connected_switches = [0 for _ in range(0, 9)]
 
 counter_to_pass = []
 
@@ -31,11 +31,13 @@ p4info_value = 'build/ibn.p4.p4info.txt'
 
 p4info_helper = helper.P4InfoHelper(p4info_value)
 
-ready = [False for _ in range(0, 9)]
+# ready = [False for _ in range(0, 9)]
 
 switch_turning_on_time = [0 for _ in range(0, 9)]
 
 firstTime = 0
+
+src_dst_dict = {}
 
 
 def ipv4_lpm_add(p4info_helper, switch_id, ingress_sw, table_name, action_name, dst_ip_addr, splitted):
@@ -217,10 +219,12 @@ def define_connection(bmv2_file_path, switch_id):
                         group_add(p4info_helper, switch, table_name, action_name, ecmp_group_id, ecmp_hash,
                                   dst_eth_addr, port)
 
-        # connected_switches.append(switch)
-
-        return switch
-
+        connected_switches[switch_id-1] = switch
+        switch_turning_on_time[switch_id - 1] = time.time_ns()
+        with open("turning_on_time_s"+str(switch_id)+".txt", "w") as file:
+            file.write("%d" % switch_turning_on_time[switch_id - 1])
+            file.close()
+        print("Turning on time for switch s%d: %d" % (switch_id, switch_turning_on_time[switch_id - 1]))
     except KeyboardInterrupt:
         print(" Shutting down.")
     except grpc.RpcError as e:
@@ -238,6 +242,9 @@ def connect_switches_to_controller(switch_id):
     parser.add_argument('-e', '--env',
                         help='Set the environment',
                         action="store", required=False)
+    parser.add_argument('-load', '--load_trained',
+                        help='Load the previously trained DQN model',
+                        action="store", required=False)
     args = parser.parse_args()
 
     # p4info_value = args.p4info
@@ -251,10 +258,13 @@ def connect_switches_to_controller(switch_id):
         print("\nBMv2 JSON file not found: %s\nHave you run 'make'?" % args.bmv2_json)
         parser.exit(1)
 
-    # for switch_id in range(1, switch_id):
-    return define_connection(args.bmv2_json, switch_id)
+    switches = [1, 6, 7, 8, 9]
+   # for switch_id in switches:
+    define_connection(args.bmv2_json, switch_id)
     # readTableRules(p4info_helper, connected_switches[switch_id-1])
 
+    print("Number of connected switches: %d" % len(connected_switches))
+    return connected_switches
     # = helper.P4InfoHelper(args.p4info)
 
 
@@ -271,7 +281,8 @@ def bitstring_to_decimal(bitstring):
     return decimal_value
 
 
-def printDigests(sw, idx, firstTime):
+'''
+def printDigestsFile(idx):
     # lock.acquire()
     print("Start checking digests for s%d" % (idx + 1))
     # ready[idx] = True
@@ -359,31 +370,127 @@ def printDigests(sw, idx, firstTime):
                             pass
             if len(digest_queue) >= 3:
                 return digest_queue
+'''
+
+
+def printDigests(idx, switch_turning_on_time2):
+    # lock.acquire()
+    print("Start checking digests for s%d" % idx)
+    # ready[idx] = True
+    # lock.release()
+    sw = connected_switches[idx-1]
+
+    print("Connection sw in printDigest:")
+    #print(sw)
+
+    # print("Print Digest")
+    # print(sw)
+
+    # TODO this is hardcoded and retrieved from the build/file.txt folder
+    DIGEST_ID = 391276020
+    try:
+        digest_entry = p4info_helper.BuildDigestEntry(digest_id=DIGEST_ID)
+        sw.SendDigestEntry(digest_entry)
+    except Exception as e:
+        #print(f"Error from digest Entry: {e}")
+        pass
+        #return [0,0,1000000]
+
+    digest_queue = []
+
+    srcAddr, dstAddr, size, arrivalTime, arrival_time_unix = None, None, None, None, 0
+    src_group = 0
+    dst_group = 0
+    try:
+        for msgs in sw.StreamDigestMessages(digest_id=DIGEST_ID):
+            for members in msgs.data:
+                if members.WhichOneof('data') == 'struct':
+                    if members.struct.members[0].WhichOneof('data') == 'bitstring':
+                        x = members.struct.members[0].bitstring
+                        srcAddr = bitstring_to_ip(x)
+                        src_group = srcAddr.split(".")[2]
+                        print("Source: %s" % srcAddr)
+                    if members.struct.members[1].WhichOneof('data') == 'bitstring':
+                        x = members.struct.members[1].bitstring
+                        dstAddr = bitstring_to_ip(x)
+                        dst_group = dstAddr.split(".")[2]
+                        print("Destination: %s" % dstAddr)
+                    if members.struct.members[2].WhichOneof('data') == 'bitstring':
+                        size = int.from_bytes(members.struct.members[2].bitstring, byteorder='big')
+                        print("Size: %d" % size)
+                    if members.struct.members[3].WhichOneof('data') == 'bitstring':
+                        # print(members.struct.members[2].bitstring)
+                        arrivalTime = int(bitstring_to_decimal(members.struct.members[3].bitstring))
+                        arrival_time_unix = time.time_ns()
+                        print("Arrival time unix: %d" % arrival_time_unix)
+
+                    src_dst_check = src_group+"-"+dst_group
+                    if src_dst_check in src_dst_dict and int(src_group) != int(idx) and int(dst_group) == int(idx):
+                        src_arr_time = src_dst_dict.get(src_dst_check)
+                        print("Turning on time dst: %d" % int(switch_turning_on_time[int(dst_group) - 1]))
+                        print("Turning on time src: %d" % int(switch_turning_on_time[int(src_group) - 1]))
+                        print("Arrival time unix: %d" % int(arrival_time_unix))
+                        print("Departure time unix: %d" % int(src_arr_time))
+
+                        latency = (int(switch_turning_on_time2[int(dst_group) - 1]) - int(switch_turning_on_time2[int(src_group) - 1])) + (int(arrival_time_unix) - int(src_arr_time))
+                        print("Latency: %d" % latency)
+                        return [dstAddr, size, latency]
+                    else:
+                        src_dst_dict[src_dst_check] = arrival_time_unix
+                        #return [dstAddr, size, None]
+    except:
+        return [0,0,100000000]
 
 
 def getP4RuntimeConnection(switch_id):
     # connect_switches_to_controller()
-    connection = connect_switches_to_controller(int(switch_id))
+    connection = connect_switches_to_controller(switch_id)
     # print("GetP4RuntimeConnection")
     # print(connection)
     # print("-----")
     # print(connected_switches)
+    print("Returning connection and switch_turning_on_time")
+
     return connection
 
+def getSwitchesTurningOnTime():
+    for switch_id in [1,6,7,8,9]:
+        try:
+            with open("turning_on_time_s"+str(switch_id)+".txt", "r") as file:
+                switch_turning_on_time[switch_id-1] = file.read()
+                file.close()
+        except:
+            print("Cannot open file for turing on time")
+            pass
+    return switch_turning_on_time
 
-def get_from_digest(connection, firstTime, switch_id):
-    # ready[int(switch_id) - 1] = False
+
+def NextHop(switch_connection, port):
+    table_entry = p4info_helper.buildTableEntry(
+        table_name="MyIngress.next_hop_forwarding",
+        action_name="MyIngress.nhop_dest",
+        action_params={
+            "port": port,
+        })
+    switch_connection.WriteTableEntry(table_entry)
+
+def get_from_digest(switch_id, switch_turning_on_time2):
+    # ready = [False for _ in range (0, 9)]
     # lock = threading.Lock()
     # print("Get from digest")
     # print(connection)
-    # t = threading.Thread(target=printDigests, args=(connection, switch_id, lock))
+    # connection = connected_switches[switch_id-1]
+    # CONTROLLARE SE IL THREAD E' NECESSARIO
+    # t = threading.Thread(target=printDigests, args=(connection, switch_turning_on_time, switch_id, lock, ready))
     # t.start()
+
+    printDigests(switch_id, switch_turning_on_time2)
 
     # Alla ricezione del primo pacchetto, ogni switch scrive un file in cui salva il valore del proprio timestamp
     # Dal secondo pacchetto in poi (quando firstTime e' negativo), ogni switch legge dai file il valore di ogni altro switch, riempie un vettore coi tempi di arrivo e cancella il file cos da evitare continui letture su file
-
+    '''
     if not firstTime or len(switch_turning_on_time) < 5:
-        switch_list = [1,6,7,8,9]
+        switch_list = [1, 6, 7, 8, 9]
         for x in switch_list:
             file_path = "arriving_time_s" + str(x) + ".txt"
             if os.path.exists(file_path):
@@ -397,8 +504,8 @@ def get_from_digest(connection, firstTime, switch_id):
                 except Exception as e:
                     print(f"Error from file get_from_digest function: {e}")
                     pass
-
-    return_digest = printDigests(connection, switch_id, firstTime)
+    '''
+    return_digest = printDigests(switch_id, switch_turning_on_time2)
     # CHECK
     '''
     while True:

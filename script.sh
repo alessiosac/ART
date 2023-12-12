@@ -2,6 +2,7 @@
 
 sudo apt-get install mate-terminal
 
+
 tab="--tab"
 cmd1="bash -c 'python3.8 RL.py --env net_env:net-v1';bash"
 cmd6="bash -c 'python3.8 RL.py --env net_env:net-v6';bash"
