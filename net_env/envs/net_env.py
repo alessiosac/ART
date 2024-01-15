@@ -234,13 +234,20 @@ class State:
                         counter += 1
                 start += (MAXPORTS * AH_LENGTH)
                 counter = 0
-            list_possible_nhop = [] # if different nhop are equal because there is not congestion
-            for i in range(0, leng(features)):
-                if features[i] == 1:
-                    list_nhop[i] = 1
-            return features
+            # list_possible_nhop = [] # if different nhop are equal because there is not congestion
+            x = random.choice([2, 3, 4, 5])
+            # for i in range(0, len(features)):
+            #    if features[i] == 1:
+            #        list_possible_nhop.append(i)
+            # print("POSSIBLE N_HOP: %d" % x)
+            list_nhop[x - 1] = 1
+            return list_nhop
         except:
-            print ("Problem with list_nhop. Need to debug")
+            return list_nhop
+        return features
+
+    def getReward(self, size, latency):
+        return size/latency
 
 
 class Packet:
@@ -282,7 +289,7 @@ class NetEnv(gym.Env):
     def __init__(self, switch_id, port):
         self.nports = 6
         self.id = switch_id  # per esempio s9
-        self.id_num = int(self.id.split("s")[1])  # cosi da avere il numero dello switch: s9 --> 9
+        self.id_num = int(self.id.split("s")[1])  # cosi da avere il 9
         # print("initialized with nports =", nports, ", id =", id, ", id_num =", self.id_num)
         # self.P4Runtime_connection = P4Runtime.getP4RuntimeConnection(self.id_num)
         self.action_space = spaces.Discrete(self.nports)
@@ -318,7 +325,6 @@ class NetEnv(gym.Env):
             self.state.setTopo(self.topology)
             self.node = self.topology.getNode(id)
             self.firstRun = False
-
         self.firstTime_Digest = True
 
         self.connection_to_controller = P4Runtime.getP4RuntimeConnection(self.id_num)
@@ -394,6 +400,7 @@ class NetEnv(gym.Env):
                 P4Runtime.NextHop(self.connection_to_controller, nhop)
             except:
                 print("P4runtime error")
+                pass
 
             return_array = np.array(return_digest, dtype=np.int64)
 
@@ -503,16 +510,14 @@ class NetEnv(gym.Env):
         '''
 
         global return_digest
-        if self.firstTime_Digest is False:
-            try:
+        try:
+            return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
+            while return_digest[2] is None or return_digest[2] <= 0:
                 return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
-                while return_digest[2] is None or return_digest[2] <= 0:
-                    return_digest = P4Runtime.get_from_digest(self.id_num, self.switch_turning_on_time)
-                pkt = parse_req(return_digest)
-                self.state.setDsts(pkt.getDsts())
-                self.firstTime_Digest = True
-            except:
-                print("Some error. Need to debug")
+            pkt = parse_req(return_digest)
+            self.state.setDsts(pkt.getDsts())
+        except:
+            print("Some error. Need to debug")
 
         # self.resetvar = True
 

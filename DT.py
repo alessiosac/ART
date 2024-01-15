@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from stable_baselines3 import DQN
 import gymnasium as gym
 from sklearn.metrics import accuracy_score
-from net_env.envs import net_env
+from net_env2.envs import net_env
 from sklearn import tree
 import pickle
 
@@ -63,6 +63,8 @@ np.savetxt("/media/sf_Shared/X_s%s" % switch_id, states, fmt="%d")
 
 np.savetxt("/media/sf_Shared/y_s%s" % switch_id, actions, fmt="%d")
 
+feature_labels = np.random.randint(0, 3, size=len(states))
+
 X_train, X_test, y_train, y_test = train_test_split(states, actions, test_size=0.2, random_state=42)
 # DT training
 decision_tree = DecisionTreeClassifier()
@@ -82,8 +84,8 @@ print("Decision tree correctly created for s%s" % switch_id)
 
 fig = plt.figure(figsize=(25,20))
 _ = tree.plot_tree(decision_tree,
-                   feature_names=["dstAddr", "size"],
-                   class_names=[3, 4, 5, 6],
+                   feature_names=["dstAddr", "size", "latency"],
+                   class_names=[0, 1, 2, 3, 4, 5],
                    filled=True,
                    max_depth=2)
 

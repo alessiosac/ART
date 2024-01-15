@@ -3,12 +3,12 @@ import argparse
 import gymnasium as gym
 import sys
 from stable_baselines3 import DQN
-from net_env.envs import net_env
+from net_env2.envs import net_env
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
 
 
-from net_env.envs import net_env
+from net_env2.envs import net_env
 
 parser = argparse.ArgumentParser(description='RL environment')
 parser.add_argument('-e', '--env',
