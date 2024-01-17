@@ -57,7 +57,6 @@ def RTT(fig, ax):
     fig.set_size_inches(width, height)
     fig.savefig('RTT_all.pdf')
 
-
 def RTT_normalized_second_version(fig, ax):
     # width as measured in inkscape
     width = 2.23
@@ -269,7 +268,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
 
     #RTT(fig, ax)
-    RTT_normalized_second_version(fig, ax)
+    #RTT_normalized_second_version(fig, ax)
     #RTT_normalized(fig, ax)
     # A2C(fig, ax)
     # reward(fig, ax)
