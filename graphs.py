@@ -16,30 +16,22 @@ def RTT(fig, ax):
     rate = [10, 20, 30, 40, 50, 60, 70, 80, 90]
     plt.xticks(rate)
 
-    RTT_nostro = [0.01934922, 0.02226016, 0.02519113, 0.03461691,
-                  0.04579561, 0.04739155, 0.04881942, 0.07886013,
-                  0.08887370]
+    RTT_nostro = [0.952605509209907, 11.804007764520316, 17.506080523304558, 11.19099341589829, 17.506080523304558, 16.620948122835706, 16.620948122835706, 12.585303016092587, 20.872527669216023]
 
-    RTT_qr_sdn = [0.011625561481568871, 0.01577061792699302, 0.03215559331382192, 0.04434395580756954, 0.05622709030058326,
-                  0.05606492599917621, 0.0775682380160355, 0.12954080512627596, 0.13610076397909953]
+    RTT_qr_sdn = [11.625561481568871, 15.77061792699302, 32.155593313821925, 44.34395580756954, 56.22709030058326, 56.06492599917621, 77.56823801603551, 129.54080512627598, 136.10076397909953]
 
-    RTT_static = [0.007750374321045915, 0.010513745284662014, 0.041437062209214615, 0.04956263720504636, 0.03748472686705551,
-                  0.03875312611339538, 0.09098130009038661, 0.2474995399878277, 0.2440258072643745]
-
-    RTT_nostro = [el * 1000 for el in RTT_nostro]
-    RTT_qr_sdn = [el * 1000 for el in RTT_qr_sdn]
-    RTT_static = [el * 1000 for el in RTT_static]
+    RTT_static = [7.750374321045915, 10.513745284662015, 41.437062209214616, 49.562637205046364, 37.48472686705551, 38.75312611339538, 90.98130009038661, 247.4995399878277, 244.0258072643745]
 
     _ = plt.plot(rate, RTT_nostro, label='ART', color='red', linewidth=0.6)
     _ = plt.plot(rate, RTT_qr_sdn, label='QR-SDN', linestyle='dashed', color='green', linewidth=0.6)
     _ = plt.plot(rate, RTT_static, label='OSPF', linestyle='dashed', color='blue', linewidth=0.6)
     # _ = plt.plot(predictions, hmm_gmr, label='HMM/GMR', linestyle='dashed', linewidth=0.6)
 
-    yerr_nostro = [0.00031846, 0.00041367, 0.00049345, 0.00044608, 0.00047182, 0.00047072, 0.00046421, 0.00083545, 0.00091631]
+    yerr_nostro = [0.000934, 0.01371, 0.019956, 0.012832, 0.015613, 0.0171, 0.017931, 0.014252, 0.020722]
     yerr_qr_sdn = [0.3, 0.2, 0.3, 0.1, 0.8, 1.03, 1.35, 1.9, 2.2]
     yerr_static = [0, 0.2, 0.1, 0.3, 0.3, 1.2, 1.48, 1.34, 1.74]
 
-    yerr_nostro = [el * 1000 for el in yerr_nostro]
+    yerr_nostro = [el * 100 for el in yerr_nostro]
 
     plt.errorbar(rate, RTT_nostro, yerr=yerr_nostro, capsize=0.9, color='k',
                  fmt="none",
@@ -65,7 +57,64 @@ def RTT(fig, ax):
     fig.set_size_inches(width, height)
     fig.savefig('RTT_all.pdf')
 
-def RTT_normalized(fig, ax):
+
+def RTT_normalized_second_version(fig, ax):
+    # width as measured in inkscape
+    width = 2.23
+    height = width / 1.618
+
+    fig.subplots_adjust(left=.20, bottom=.26, right=.98, top=.97)
+
+    rate = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    plt.xticks(rate)
+
+    RTT_nostro = [0.952605509209907, 11.804007764520316, 17.506080523304558, 11.19099341589829, 17.506080523304558, 16.620948122835706, 16.620948122835706, 12.585303016092587, 20.872527669216023]
+
+    RTT_qr_sdn = [11.625561481568871, 15.77061792699302, 32.155593313821925, 44.34395580756954, 56.22709030058326, 56.06492599917621, 77.56823801603551, 129.54080512627598, 136.10076397909953]
+
+    RTT_static = [7.750374321045915, 10.513745284662015, 41.437062209214616, 49.562637205046364, 37.48472686705551, 38.75312611339538, 90.98130009038661, 247.4995399878277, 244.0258072643745]
+
+    RTT_nostro_norm = tuple((a/b) for a, b in zip(RTT_nostro, RTT_static))
+    RTT_qr_sdn_norm = tuple((a/b) for a, b in zip(RTT_qr_sdn, RTT_static))
+    RTT_static_norm = tuple((a/b) for a, b in zip(RTT_static, RTT_static))
+
+    _ = plt.plot(rate, RTT_nostro_norm, label='ART', color='red', linewidth=0.6)
+    _ = plt.plot(rate, RTT_qr_sdn_norm, label='QR-SDN', linestyle='dashed', color='green', linewidth=0.6)
+    _ = plt.plot(rate, RTT_static_norm, label='OSPF', linestyle='dashed', color='blue', linewidth=0.6)
+    # _ = plt.plot(predictions, hmm_gmr, label='HMM/GMR', linestyle='dashed', linewidth=0.6)
+
+    yerr_nostro = [0.000934, 0.01371, 0.019956, 0.012832, 0.015613, 0.0171, 0.017931, 0.014252, 0.020722]
+    yerr_qr_sdn = [0.03, 0.02, 0.03, 0.01, 0.02, 0.03, 0.035, 0.09, 0.02]
+    yerr_static = [0, 0.02, 0.01, 0.03, 0.03, 0.02, 0.048, 0.034, 0.074]
+
+    #yerr_nostro = [el * 100 for el in yerr_nostro]
+
+    plt.errorbar(rate, RTT_nostro_norm, yerr=yerr_nostro, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+    plt.errorbar(rate, RTT_qr_sdn_norm, yerr=yerr_qr_sdn, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+    plt.errorbar(rate, RTT_static_norm, yerr=yerr_static, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    ax.set_xlabel('Network Load (\%)')
+    ax.set_ylabel('RTT (norm. to OSPF)')
+    ax.set_ylim(0.0, 2.99)
+
+    plt.legend(loc='upper right', fontsize=7)
+    plt.margins(0.02)
+
+    # ax.set_ylim(0, 100)
+
+    fig.set_size_inches(width, height)
+    fig.savefig('RTT_normalized.pdf')
+
+def RTT_normalized_first_version(fig, ax):
     # width as measured in inkscape
     width = 2.23
     height = width / 1.618
@@ -219,7 +268,8 @@ if __name__ == "__main__":
     plt.rc('legend', fontsize=8)
     fig, ax = plt.subplots()
 
-    # RTT(fig, ax)
-    RTT_normalized(fig, ax)
+    #RTT(fig, ax)
+    RTT_normalized_second_version(fig, ax)
+    #RTT_normalized(fig, ax)
     # A2C(fig, ax)
     # reward(fig, ax)
