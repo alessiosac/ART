@@ -1,4 +1,3 @@
-import random
 import time
 
 import gymnasium as gym
@@ -234,12 +233,12 @@ class State:
                         counter += 1
                 start += (MAXPORTS * AH_LENGTH)
                 counter = 0
-            # list_possible_nhop = [] # if different nhop are equal because there is not congestion
-            x = random.choice([2, 3, 4, 5])
-            # for i in range(0, len(features)):
-            #    if features[i] == 1:
-            #        list_possible_nhop.append(i)
-            # print("POSSIBLE N_HOP: %d" % x)
+            list_possible_nhop = [] # if different nhop are equal because there is not congestion
+
+            for i in range(0, len(features)):
+                if features[i] == 1:
+                   list_possible_nhop.append(i)
+            print("POSSIBLE N_HOP: %d" % x)
             list_nhop[x - 1] = 1
             return list_nhop
         except:

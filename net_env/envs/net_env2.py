@@ -1,6 +1,5 @@
 import mmap
 import os
-import random
 import time
 
 import gymnasium
