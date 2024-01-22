@@ -129,8 +129,8 @@ def loss(fig, ax):
     ART = [0.3, 1.8, 2.38, 4.5, 3.8, 4.12, 4.72, 5.17, 6.93]
 
 
-    _ = plt.plot(rate, ROAR, label='ROAR', color='red', linewidth=0.6)
-    _ = plt.plot(rate, ART, label='ART', color='orange', linestyle='dashed', linewidth=0.6)
+    _ = plt.plot(rate, ART, label='ART', color='red', linewidth=0.6)
+    _ = plt.plot(rate, ROAR, label='ROAR', color='orange', linestyle='dashed', linewidth=0.6)
     _ = plt.plot(rate, qr_sdn, label='QR-SDN', linestyle='dashed', color='seagreen', linewidth=0.6)
     _ = plt.plot(rate, OSPF, label='OSPF', linestyle='dotted', color='royalblue', linewidth=0.6)
 
