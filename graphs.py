@@ -57,6 +57,121 @@ def RTT(fig, ax):
     fig.set_size_inches(width, height)
     fig.savefig('RTT_all.pdf')
 
+
+def throughput_load_generated(fig, ax):
+    width = 2.23
+    height = width / 1.618
+
+    fig.subplots_adjust(left=.20, bottom=.26, right=.98, top=.97)
+
+    rate = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    plt.xticks(rate)
+
+    throughput_ART = [99.8, 98.3, 97.3, 87.3, 82.9, 81.3, 81.5, 88.3, 83.7]
+    throughput_ROAR = [99.8, 99.3, 94.1, 86.4, 78.9, 78.3, 78.1, 80.2, 81.7]
+    throughput_static = [95.6, 98.9, 93.1, 83.2, 75.3, 77.4, 74.5, 76.1, 75.4]
+    throughput_qr_sdn = [89.3, 93.3, 95.6, 84.3, 69.1, 72.6, 77.9, 80.1, 81.2]
+
+    _ = plt.plot(rate, throughput_ART, label='ART', color='red', linewidth=0.6)
+    _ = plt.plot(rate, throughput_ROAR, label='ROAR', color='orange', linestyle='dashed', linewidth=0.6)
+    _ = plt.plot(rate, throughput_qr_sdn, label='QR-SDN', linestyle='dashed', color='green', linewidth=0.6)
+    _ = plt.plot(rate, throughput_static, label='OSPF', linestyle='dotted', color='blue', linewidth=0.6)
+
+    yerr_ART = [0.1, 0.3, 0.5, 0.3, 0.3, 2.42, 2.33, 1.83, 1.5]
+    yerr_ROAR = [0.1, 0.1, 0.3, 0.2, 0.4, 1.88, 1.97, 1.53, 1.4]
+    yerr_static = [0, 0.1, 0.2, 0.1, 0.4, 1.76, 1.26, 1.57, 1.2]
+    yerr_qr_sdn = [0, 0.2, 0.4, 0.5, 0.2, 1.76, 1.38, 1.75, 1.3]
+
+    plt.errorbar(rate, throughput_ART, yerr=yerr_ART, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    plt.errorbar(rate, throughput_ROAR, yerr=yerr_ROAR, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    plt.errorbar(rate, throughput_static, yerr=yerr_static, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    plt.errorbar(rate, throughput_qr_sdn, yerr=yerr_qr_sdn, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    ax.set_xlabel('Load (\%)')
+    ax.set_ylabel('Throughput (Mbps)')
+
+    plt.legend(fontsize=6)
+    plt.margins(0.02)
+
+    # ax.set_ylim(0, 100)
+
+    fig.set_size_inches(width, height)
+    fig.savefig('throughput_generated.pdf')
+
+def loss(fig, ax):
+    # width as measured in inkscape
+    width = 2.23
+    height = width / 1.618
+
+    fig.subplots_adjust(left=.20, bottom=.26, right=.98, top=.97)
+
+    rate = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    plt.xticks(rate)
+
+    ROAR = [0.2, 1.4, 2.7, 3.74, 3.62, 4.39, 4.93, 5.19, 7.01]
+    qr_sdn = [0.1, 1.5, 2.3, 4.8, 4.6, 5.1, 5.42, 6.7, 7.14]
+    OSPF = [0.2, 1.7, 2.9, 4.6, 5.9, 5.37, 6.22, 6.92, 7.19]
+    ART = [0.3, 1.8, 2.38, 4.5, 3.8, 4.12, 4.72, 5.17, 6.93]
+
+
+    _ = plt.plot(rate, ROAR, label='ROAR', color='red', linewidth=0.6)
+    _ = plt.plot(rate, ART, label='ART', color='orange', linestyle='dashed', linewidth=0.6)
+    _ = plt.plot(rate, qr_sdn, label='QR-SDN', linestyle='dashed', color='seagreen', linewidth=0.6)
+    _ = plt.plot(rate, OSPF, label='OSPF', linestyle='dotted', color='royalblue', linewidth=0.6)
+
+    yerr_ROAR = [0.1, 0.2, 0.1, 0.5, 0.3, 0.68, 0.22, 0.47, 0.33]
+    yerr_OSPF = [0.1, 0.3, 0.231, 0.123, 0.317, 0.333, 0.236, 0.4922, 0.422]
+    yerr_ART = [0.1, 0.1, 0.25, 0.24, 0.127, 0.231, 0.363, 0.522, 0.322]
+    yerr_qr_sdn = [0.1, 0.1, 0.2, 0.16, 0.212, 0.416, 0.438, 0.313, 0.421]
+
+    plt.errorbar(rate, ROAR, yerr=yerr_ROAR, capsize=0.9, color='k',
+                fmt="none",
+                elinewidth=0.5,
+                capthick=0.5)
+
+    plt.errorbar(rate, ART, yerr=yerr_ART, capsize=0.9, color='k',
+                fmt="none",
+                elinewidth=0.5,
+                capthick=0.5)
+
+    plt.errorbar(rate, OSPF, yerr=yerr_OSPF, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    plt.errorbar(rate, qr_sdn, yerr=yerr_qr_sdn, capsize=0.9, color='k',
+                 fmt="none",
+                 elinewidth=0.5,
+                 capthick=0.5)
+
+    ax.set_xlabel('Load (\%)')
+    ax.set_ylabel('Packet Loss (\%)')
+
+    plt.legend(fontsize=6)
+    plt.margins(0.02)
+
+    # ax.set_ylim(0, 150)
+    # ax.set_xlim(0, 45000)
+
+    fig.set_size_inches(width, height)
+    fig.savefig('pkt_loss.pdf')
+
+
 def RTT_normalized_second_version(fig, ax):
     # width as measured in inkscape
     width = 2.23
