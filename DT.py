@@ -34,7 +34,7 @@ def generate_dataset(dqn_model, env, num_samples=100000):
 
             state = next_state
 
-        print("SONO AL SAMPLE NUMERO ", i)
+        print("Sample number ", i)
         i = i + 1
 
     return np.array(states), np.array(actions)
