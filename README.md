@@ -69,9 +69,3 @@ Packet processing flow: 1. Packets are processed by the P4 data plane\
     interactions
 -   Each switch operates independently but can be extended to support
     coordination
-
-## Future Improvements
-
--   Centralized training with distributed execution
--   Support for additional reward functions
--   Visualization of routing decisions and learning progress
